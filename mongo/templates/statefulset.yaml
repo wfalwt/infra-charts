@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo-{{ .Values.mongo.name }}
+  labels:
+    app: mongo-{{ .Values.mongo.name }}
+spec:
+  selector:
+    matchLabels:
+      app: mongo-{{ .Values.mongo.name }}
+      version: "4.2"
+  serviceName: mongo-{{ .Values.mongo.name }}
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: mongo-{{ .Values.mongo.name }}
+        version: "4.2"
+      {{ if .Values.mongo.exporter.enable }}
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9216'
+      {{ end }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.nodeSelector}}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{ if .Values.mongo.enablePodAntiAffinity }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - mongo-{{ .Values.mongo.name }}
+              topologyKey: "kubernetes.io/hostname"
+      {{ end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+          runAsUser: 0
+      containers:
+        - name: mongo-{{ .Values.mongo.name }}
+          image: goharbor.ebsig.com/library/mongo/mongo:4.2
+          {{ if .Values.mongo.auth.enable }}
+          command:
+            - /bin/sh
+            - -c
+            - >
+                if [ -f /data/db/admin-user.lock ]; then
+                    cp -v /etc/secrets-volume/mongodb-keyfile /data/db/mongodb-keyfile
+                    chmod 400 /data/db/mongodb-keyfile
+                    mongod --replSet {{ .Values.mongo.name }} --clusterAuthMode keyFile --keyFile /data/db/mongodb-keyfile --profile=1  --wiredTigerCacheSizeGB={{ .Values.mongo.wtCache }} --bind_ip 0.0.0.0
+                else
+                    mongod --auth
+                fi
+          lifecycle:
+              postStart:
+                  exec:
+                      command:
+                          -   /bin/sh
+                          -  -c
+                          -  >
+                              if [ ! -f /data/db/admin-user.lock ]; then
+                                sleep 5;
+                                touch /data/db/admin-user.lock
+                                PodIndex=`hostname |awk -F '-' '{print $NF}'`
+                                if [ $PodIndex = "0" ]; then
+                                    mongo --eval 'db = db.getSiblingDB("{{ .Values.mongo.auth.database }}"); db.createUser({ user: "{{ .Values.mongo.auth.user }}", pwd: "{{ .Values.mongo.auth.password }}", roles: [{ role: "root", db: "admin" }]});';
+                                fi;
+                                mongod --shutdown;
+                              fi;
+          {{ else }}
+          command:
+              - mongod
+              - "--profile=1"
+              - "--wiredTigerCacheSizeGB={{ .Values.mongo.wtCache }}"
+              - "--replSet"
+              - {{ .Values.mongo.name }}
+              - "--bind_ip"
+              - 0.0.0.0
+          {{ end }}
+          resources:
+          {{- toYaml .Values.mongo.resoures | nindent 12 }}
+          ports:
+            - containerPort: 27017
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 300
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+            {{ if .Values.mongo.auth.enable }}
+            - name: mongo-keyfile
+              mountPath: /etc/secrets-volume/mongodb-keyfile
+              subPath: mongodb-keyfile
+              readOnly: true
+            {{ end }}
+        - name: mongo-sidecar-{{ .Values.mongo.name }}
+          image: goharbor.ebsig.com/dist/mongo/mongo-k8s-sidecar:20210807
+          env:
+            - name: MONGO_SIDECAR_POD_LABELS
+              value: "app=mongo-{{ .Values.mongo.name }}"
+            - name: KUBERNETES_MONGO_SERVICE_NAME
+              value: mongo-{{ .Values.mongo.name }}
+            {{ if .Values.mongo.auth.enable }}
+            - name: MONGODB_USERNAME
+              value: {{ .Values.mongo.auth.user }}
+            - name: MONGODB_PASSWORD
+              value: {{ .Values.mongo.auth.password }}
+            - name: MONGODB_DATABASE
+              value: {{ .Values.mongo.auth.database }}
+            {{ end }}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 500Mi
+            requests:
+              cpu: 10m
+              memory: 10Mi
+        {{ if .Values.mongo.exporter.enable }}
+        - name: mongo-exporter-{{ .Values.mongo.name }}
+          image: goharbor.ebsig.com/library/bitnami-mongodb-exporter:0.11.2
+          args: ["--mongodb.uri", "mongodb://127.0.0.1:27017/admin/?connect=direct" ]
+          ports:
+            - containerPort: 9216
+              name: http
+        {{ end }}
+      {{ if .Values.mongo.auth.enable }}
+      volumes:
+          - name: mongo-keyfile
+            secret:
+                defaultMode: 256
+                secretName: mongo-keyfile-{{ .Values.mongo.name }}
+      {{ end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.mongo.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.mongo.storage.capacity }}

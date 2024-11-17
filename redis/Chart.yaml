@@ -1,0 +1,10 @@
+apiVersion: v2
+name: ebsig-redis
+description: Deployment for Redis instance
+type: application
+version: 0.1.0
+appVersion: 5.0.14
+maintainers:
+  - name: WeiFang'an
+    email: weifangan@ebsig.com
+    url: https://goharbor.ebsig.com/

@@ -1,0 +1,18 @@
+{{ if .Values.mongo.dump.enable }}
+{{ $checkdumppvc := lookup "v1" "PersistentVolumeClaim" .Release.Namespace .Values.mongo.dump.datapvc }}
+    {{ if not $checkdumppvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: {{ .Values.mongo.dump.datapvc }}
+    labels:
+        app: mongo-{{ .Values.mongo.name }}
+spec:
+    storageClassName: {{ .Values.mongo.storage.storageClassName }}
+    accessModes:
+        -   ReadWriteOnce
+    resources:
+        requests:
+            storage: {{ .Values.mongo.dump.capacity }}
+    {{ end }}
+{{ end }}

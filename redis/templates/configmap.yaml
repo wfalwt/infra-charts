@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: cm-redis-{{ .Values.redis.name }}
+    labels:
+        app: redis-{{ .Values.redis.name }}
+data:
+    redis.conf: |
+        bind 0.0.0.0
+        protected-mode yes
+        port 6379
+
+        requirepass {{ .Values.redis.config.password | default "" | quote }}
+        tcp-backlog 511
+        timeout 0
+        tcp-keepalive 300
+        daemonize no
+        pidfile /tmp/redis_6379.pid
+        loglevel notice
+        logfile ""
+        databases 16
+        always-show-logo no
+        maxclients {{ .Values.redis.config.maxclients }}
+        maxmemory {{ .Values.redis.config.maxmemory }}
+        dir /data
+        {{ if eq .Values.redis.config.savepolicy "rbd" }}
+        rdbcompression yes
+        rdbchecksum yes
+        dbfilename dump.rdb
+        save 900 1
+        save 300 10
+        save 60 10000
+        {{- end }}
+        {{ if eq  .Values.redis.config.savepolicy "aof" }}
+        appendonly yes
+        appendfilename "appendonly.aof"
+        appendfsync everysec
+        no-appendfsync-on-rewrite no
+        auto-aof-rewrite-percentage 100
+        auto-aof-rewrite-min-size 64mb
+        {{-end }}
+        maxmemory-policy allkeys-lru
+        lazyfree-lazy-eviction no
+        lazyfree-lazy-expire no
+        lazyfree-lazy-server-del no
+
+        slowlog-log-slower-than 1000
+        slowlog-max-len 128

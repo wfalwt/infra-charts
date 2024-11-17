@@ -1,0 +1,10 @@
+apiVersion: v2
+name: ebsig-mysql
+description: Deployment for mysql instance
+type: application
+version: 0.1.0
+appVersion: 8.0.30
+maintainers:
+  - name: WeiFang'an
+    email: weifangan@ebsig.com
+    url: https://goharbor.ebsig.com/

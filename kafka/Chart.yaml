@@ -1,0 +1,10 @@
+apiVersion: v2
+name: ebsig-kafka
+description: Deployment for Kafka HA cluster
+type: application
+version: 0.2.0
+appVersion: 2.11
+maintainers:
+  - name: WeiFang'an
+    email: weifangan@ebsig.com
+    url: https://goharbor.ebsig.com/

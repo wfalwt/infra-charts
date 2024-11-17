@@ -1,0 +1,28 @@
+mongo:
+  name:
+  wtCache: 2.5
+  auth:
+    enable: false
+    user: admin
+    password:
+    database: admin
+  storage:
+    storageClassName:
+    capacity: 10Gi
+  resoures:
+    requests:
+      cpu: 100m
+      memory: 500Mi
+    limits:
+      cpu: 3000m
+      memory: 6Gi
+  exporter:
+    enable: true
+  enablePodAntiAffinity: true
+  dump:
+    enable: false
+    cron: "59 23 * * *"
+    datapvc: dump-pvc
+    capacity: 10Gi
+nodeSelector: {}
+tolerations: []

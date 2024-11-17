@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: pvc-mysql-{{ .Values.mysql.name }}
+    labels:
+        app: mysql-{{ .Values.mysql.name }}
+spec:
+    storageClassName: {{ .Values.mysql.storageClass }}
+    accessModes:
+        -   ReadWriteOnce
+    resources:
+        requests:
+            storage: {{ .Values.mysql.storageCapacity }}

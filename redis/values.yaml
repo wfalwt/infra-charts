@@ -1,0 +1,10 @@
+redis:
+    name:
+    image: redis:5.0
+    storageClass: data-nfs-storage
+    storageCapacity: 5Gi
+    config:
+        password:
+        maxclients: 10000
+        maxmemory: 1GB
+        savepolicy: rdb

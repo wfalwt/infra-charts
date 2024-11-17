@@ -1,0 +1,10 @@
+apiVersion: v2
+name: ebsig-mongo
+description: Deployment for MongoDB replicaset
+type: application
+version: 0.4.2
+appVersion: 4.2.0
+maintainers:
+  - name: Frankie Wei
+    email: weifangan@ebsig.com
+    url: https://goharbor.ebsig.com/

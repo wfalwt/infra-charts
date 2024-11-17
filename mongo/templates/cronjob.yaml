@@ -1,0 +1,78 @@
+{{ if .Values.mongo.dump.enable }}
+  {{ $dumpcm := lookup "v1" "ConfigMap" .Release.Namespace "mongo-backup-cm" }}
+{{- if not $dumpcm }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: mongo-backup-cm
+    labels:
+        app: mongo-backup
+data:
+    mongobackup.sh: |
+        #!/bin/sh
+        if [ $# -lt 2 ]; then
+          echo "not enough args "
+          exit 2
+        fi
+        mongohost=$1
+        mongoname=$2
+        dumpfile=/data/dump/${mongoname}-$(date +%y%m%d).gz
+        starttime=`date +%s`
+        mongodump -h ${mongohost} --archive=${dumpfile} --gzip
+        endtime=`date +%s`
+        echo "[`date `] dumpfile:${dumpfile} done,execute time $((endtime-starttime)) s\n"
+        echo "start to clean backup file before 7 days \n"
+        find /data/dump -mtime +7 -name "*.gz" -exec rm -fv {} \;
+        echo "restart mongodb node to release hot memory \n"
+        mongo --host ${mongohost} --eval "db.adminCommand({shutdown:1,force:true,timeoutsec:30});"
+        exit 0
+---
+  {{- end }}
+apiVersion: {{ printf "%s" (include "CronJobApiVersion" .) | trim }}
+kind: CronJob
+metadata:
+    name: mongo-{{ .Values.mongo.name }}-backup-crond
+    labels:
+        app: mongo-{{ .Values.mongo.name }}
+spec:
+    jobTemplate:
+        spec:
+            template:
+                spec:
+                    containers:
+                        -   name: mongodump
+                            image: goharbor.ebsig.com/library/mongo/mongo:4.2
+                            command:
+                                - "/bin/sh"
+                                - "/usr/bin/mongobackup.sh"
+                            args:
+                                -   "mongo-{{ .Values.mongo.name }}-1.mongo-{{ .Values.mongo.name }}.{{ .Release.Namespace}}:27017"
+                                -   "{{ .Values.mongo.name }}"
+                            volumeMounts:
+                                -   mountPath: /data/dump
+                                    name: dump-data
+                                -   mountPath: /usr/bin/mongobackup.sh
+                                    subPath: mongobackup.sh
+                                    name: mongobackup
+                            resources:
+                                requests:
+                                    cpu: 10m
+                                    memory: 100Mi
+                                limits:
+                                    cpu: 2000m
+                                    memory: 4000Mi
+                    restartPolicy: OnFailure
+                    volumes:
+                        -   name: dump-data
+                            persistentVolumeClaim:
+                                claimName: {{ .Values.mongo.dump.datapvc }}
+                        -   name: mongobackup
+                            configMap:
+                                items:
+                                    -   key: mongobackup.sh
+                                        path: mongobackup.sh
+                                name: mongo-backup-cm
+            backoffLimit: 3
+    schedule: {{ .Values.mongo.dump.cron }}
+    successfulJobsHistoryLimit: 7
+  {{- end }}

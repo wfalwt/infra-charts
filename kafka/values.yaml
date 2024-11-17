@@ -1,0 +1,9 @@
+zookeeper:
+    enablePodAffinity: true
+    name:
+    storageClass:
+    storageCapacity: 512Mi
+kafka:
+    name:
+    storageClass:
+    storageCapacity: 4Gi

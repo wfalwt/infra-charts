@@ -1,0 +1,17 @@
+mysql:
+    name:
+    image: mysql:8.0
+    storageClass: data-nfs-storage
+    storageCapacity: 5Gi
+    resources:
+        requests:
+            cpu: 10m
+            memory: 100Mi
+        limits:
+            cpu: 2000m
+            memory: 4096Mi
+    config:
+        password: thankyou
+        buffer_pool_size: 1Gi
+        buffer_pool_instance: 2
+        sql_mode: STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION

@@ -1,0 +1,15 @@
+{{ $crversion := printf "%s" (include "ClusterRoleBindingApiVersion" .) | trim  }}
+{{ $viewer := lookup $crversion "ClusterRoleBinding" .Release.Namespace "default-view" }}
+{{ if not $viewer }}
+apiVersion: {{ print $crversion }}
+kind: ClusterRoleBinding
+metadata:
+    name: default-view
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: view
+subjects:
+    - kind: ServiceAccount
+      name: default
+{{ end }}
